@@ -3,7 +3,7 @@ import {useState} from 'react';
 type Check={ok?:boolean;folder?:string;canAddChildren?:boolean;error?:string;missing?:string[];status?:number};
 export default function GoogleDriveSetup(){
  const [token,setToken]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);
- const [check,setCheck]=useState<Check|null>(null);const [url,setUrl]=useState('');const [name,setName]=useState('');const [saved,setSaved]=useState('');
+ const [check,setCheck]=useState<Check|null>(null);const [results,setResults]=useState<Array<{url:string;type:string;side:string}>>([]);const [kind,setKind]=useState('game');const [url,setUrl]=useState('');const [name,setName]=useState('');const [saved,setSaved]=useState('');
  async function connect(){
   setError('');setBusy(true);
   try{
@@ -17,6 +17,11 @@ export default function GoogleDriveSetup(){
   setError('');setBusy(true);setCheck(null);
   try{const r=await fetch('/api/admin/drive-status',{headers:{Authorization:'Bearer '+token},cache:'no-store'});const d=await r.json();setCheck(d)}
   catch{setError('No se pudo verificar Drive.')}finally{setBusy(false)}
+ }
+ async function searchCovers(){
+  setError('');setResults([]);setBusy(true);
+  try{const r=await fetch('/api/admin/search-covers?title='+encodeURIComponent(name)+'&kind='+kind,{headers:{Authorization:'Bearer '+token},cache:'no-store'});const d=await r.json();if(!r.ok||d.error){setError(d.error||'Error de búsqueda');return}setResults(d.images||[]);if(!d.images?.length)setError('No hay imágenes disponibles para este título')}
+  catch{setError('Error al consultar TheGamesDB')}finally{setBusy(false)}
  }
  async function save(){
   setError('');setSaved('');setBusy(true);
@@ -42,7 +47,11 @@ export default function GoogleDriveSetup(){
   <p>Pega una URL de imagen autorizada de TheGamesDB o IGDB. Puedes elegir otra imagen cambiando la URL. Esta prueba guarda el archivo en Drive; todavía no actualiza Google Sheets.</p>
   <label htmlFor="name">Nombre del juego o consola</label>
   <input id="name" value={name} onChange={e=>setName(e.target.value)} placeholder="Super Mario 64" style={input}/>
-  <label htmlFor="url">URL HTTPS de la imagen</label>
+  <label htmlFor="kind">Tipo de elemento</label>
+  <select id="kind" value={kind} onChange={e=>setKind(e.target.value)} style={input}><option value="game">Videojuego</option><option value="console">Consola</option></select>
+  <button disabled={!token||name.length<2||busy} onClick={searchCovers} style={{padding:12,marginBottom:16}}>Buscar portadas en TheGamesDB</button>
+  {results.length>0&&<div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12,margin:'14px 0'}}>{results.map((p,i)=><button key={p.url+i} onClick={()=>setUrl(p.url)} style={{border:url===p.url?'3px solid #16a34a':'1px solid #888',borderRadius:8,padding:8,background:'transparent',color:'inherit'}}><img src={p.url} alt={'Portada '+(i+1)} loading="lazy" style={{width:'100%',height:150,objectFit:'contain'}}/><span style={{display:'block',fontSize:12}}>{p.type||'Imagen'} {p.side||''}</span><span style={{display:'block',fontSize:12}}>{url===p.url?'✓ Seleccionada':'Seleccionar'}</span></button>)}</div>}
+  <label htmlFor="url">URL HTTPS de la imagen seleccionada</label>
   <input id="url" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://cdn.thegamesdb.net/..." style={input}/>
   {url.startsWith('https://')&&<img src={url} alt="Vista previa de la portada elegida" style={{maxWidth:180,maxHeight:240,objectFit:'contain',display:'block',marginBottom:16}}/>}
   <button disabled={!token||!url||busy} onClick={save} style={{padding:12}}>Guardar esta imagen en Drive</button>
