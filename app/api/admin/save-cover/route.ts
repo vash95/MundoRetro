@@ -26,7 +26,15 @@ export async function POST(request:NextRequest){
   const len=Number(res.headers.get('content-length')||0);
   if(len>MAX_BYTES)return NextResponse.json({error:'IMAGE_TOO_LARGE'},{status:413});
   const chunks:Uint8Array[]=[];let size=0;
-  for await(const chunk of res.body||[]){size+=chunk.length;if(size>MAX_BYTES)return NextResponse.json({error:'IMAGE_TOO_LARGE'},{status:413});chunks.push(chunk)}
+  if(!res.body)return NextResponse.json({error:'EMPTY_IMAGE'},{status:502});
+  const reader=res.body.getReader();
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)break;
+   size+=value.byteLength;
+   if(size>MAX_BYTES){await reader.cancel();return NextResponse.json({error:'IMAGE_TOO_LARGE'},{status:413});}
+   chunks.push(value);
+  }
   const buffer=Buffer.concat(chunks.map(x=>Buffer.from(x)));
   const extension=mime==='image/png'?'png':mime==='image/webp'?'webp':'jpg';
   const name=(input.name||'portada').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]/g,'-').slice(0,70)||'portada';
