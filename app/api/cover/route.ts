@@ -1,18 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-export const revalidate=86400;
-const endpoint='https://en.wikipedia.org/w/api.php';
-export async function GET(request:NextRequest){
- const title=(request.nextUrl.searchParams.get('title')||'').trim().slice(0,100);
- const kind=request.nextUrl.searchParams.get('kind')==='console'?'console':'video game';
- if(title.length<3)return NextResponse.json({url:null},{status:400});
- try{
-  const params=new URLSearchParams({action:'query',generator:'search',gsrsearch:'intitle:"'+title.replace(/["<>]/g,'')+'" '+kind,gsrlimit:'4',prop:'pageimages|info',pithumbsize:'440',format:'json',origin:'*'});
-  const res=await fetch(endpoint+'?'+params.toString(),{next:{revalidate:86400},headers:{'User-Agent':'MundoRetro/1.0 (public game catalog)'}});
-  if(!res.ok)throw Error('Wikipedia unavailable');
-  const body=await res.json();
-  const pages=Object.values(body.query?.pages||{}) as Array<{title?:string;thumbnail?:{source?:string}}>;
-  const normalized=(x:string)=>x.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const match=pages.filter(p=>p.thumbnail?.source).sort((a,b)=>Number(normalized(b.title||'').includes(normalized(title)))-Number(normalized(a.title||'').includes(normalized(title))))[0];
-  return NextResponse.json({url:match?.thumbnail?.source||null,source:match?'Wikipedia / Wikimedia Commons':null},{headers:{'Cache-Control':'public, s-maxage=86400, stale-while-revalidate=604800'}});
- }catch{return NextResponse.json({url:null},{status:200});}
+export const revalidate = 86400;
+const API = 'https://api.thegamesdb.net/v1';
+type Picture = { filename?: string; type?: string; side?: string };
+export async function GET(request: NextRequest) {
+ const title = (request.nextUrl.searchParams.get('title') || '').trim().slice(0, 120);
+ const kind = request.nextUrl.searchParams.get('kind') === 'console' ? 'console' : 'game';
+ const key = process.env.THEGAMESDB_API_KEY;
+ if (!title || title.length < 2) return NextResponse.json({url:null}, {status:400});
+ if (!key) return NextResponse.json({url:null, error:'API key not configured'});
+ try {
+  const search = new URLSearchParams({apikey:key, name:title});
+  const resource = kind === 'console' ? 'Platforms/ByPlatformName' : 'Games/ByGameName';
+  const response = await fetch(`${API}/${resource}?${search}`, {next:{revalidate:86400}});
+  if (!response.ok) throw new Error('TheGamesDB search failed');
+  const found = await response.json();
+  const records = kind === 'console' ? found.data?.platforms : found.data?.games;
+  const candidates = Array.isArray(records) ? records : Object.values(records || {}).flat();
+  const normalize = (s:string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+  const target = normalize(title);
+  const match = (candidates as Array<{id:number;game_title?:string;name?:string}>).find(x=>normalize(x.game_title||x.name||'')===target) || candidates[0];
+  if (!match?.id) return NextResponse.json({url:null});
+  const imageResource = kind === 'console' ? 'Platforms/Images' : 'Games/Images';
+  const imageParams = new URLSearchParams({apikey:key, [kind==='console'?'platforms_id':'games_id']:String(match.id)});
+  const imagesResponse = await fetch(`${API}/${imageResource}?${imageParams}`,{next:{revalidate:86400}});
+  if (!imagesResponse.ok) throw new Error('TheGamesDB images failed');
+  const images = await imagesResponse.json();
+  const pictures:Picture[] = images.data?.images?.[String(match.id)] || [];
+  const chosen = pictures.find(x=>x.type==='boxart' && x.side==='front') || pictures.find(x=>x.type==='boxart') || pictures[0];
+  const base = images.data?.base_url?.original || images.data?.base_url?.large || images.data?.base_url?.medium;
+  const url = chosen?.filename && base ? base.replace(/\/$/,'')+'/'+chosen.filename.replace(/^\//,'') : null;
+  return NextResponse.json({url,source:url?'TheGamesDB':null,id:match.id},{headers:{'Cache-Control':'public, s-maxage=86400, stale-while-revalidate=604800'}});
+ } catch {return NextResponse.json({url:null});}
 }
