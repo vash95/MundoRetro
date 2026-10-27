@@ -16,7 +16,7 @@ export async function POST(request:NextRequest){
  const folderId=process.env.GOOGLE_DRIVE_COVERS_FOLDER_ID;
  if(!folderId)return NextResponse.json({error:'DRIVE_FOLDER_NOT_CONFIGURED'},{status:503});
  try{
-  const input=await request.json() as {url?:string;name?:string};
+  const input=await request.json() as {url?:string;name?:string;replaceFileId?:string};
   const source=new URL(input.url||'');
   if(source.protocol!=='https:'||!ALLOWED_HOSTS.has(source.hostname)||source.port||source.username||source.password)return NextResponse.json({error:'SOURCE_NOT_ALLOWED'},{status:400});
   const res=await fetch(source,{redirect:'error',signal:AbortSignal.timeout(12000)});
@@ -39,7 +39,14 @@ export async function POST(request:NextRequest){
   const extension=mime==='image/png'?'png':mime==='image/webp'?'webp':'jpg';
   const name=(input.name||'portada').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]/g,'-').slice(0,70)||'portada';
   const drive=google.drive({version:'v3',auth:auth()});
+  if(input.replaceFileId){
+   if(!/^[a-zA-Z0-9_-]{10,128}$/.test(input.replaceFileId))return NextResponse.json({error:'INVALID_FILE_ID'},{status:400});
+   const existing=await drive.files.get({fileId:input.replaceFileId,fields:'id,name,mimeType,parents,trashed'});
+   if(existing.data.trashed||!existing.data.parents?.includes(folderId)||!existing.data.mimeType?.startsWith('image/'))return NextResponse.json({error:'FILE_NOT_IN_COVERS_FOLDER'},{status:403});
+   const updated=await drive.files.update({fileId:input.replaceFileId,media:{mimeType:mime,body:Readable.from(buffer)},requestBody:{name:`${name}.${extension}`},fields:'id,name,webViewLink'});
+   return NextResponse.json({id:updated.data.id,name:updated.data.name,url:updated.data.webViewLink,replaced:true});
+  }
   const file=await drive.files.create({requestBody:{name:`${name}-${Date.now()}.${extension}`,parents:[folderId]},media:{mimeType:mime,body:Readable.from(buffer)},fields:'id,name,webViewLink'});
-  return NextResponse.json({id:file.data.id,name:file.data.name,url:file.data.webViewLink});
+  return NextResponse.json({id:file.data.id,name:file.data.name,url:file.data.webViewLink,replaced:false});
  }catch(e){return NextResponse.json({error:e instanceof Error&&e.message==='DRIVE_OAUTH_NOT_CONFIGURED'?'DRIVE_OAUTH_NOT_CONFIGURED':'UPLOAD_FAILED'},{status:503})}
 }
