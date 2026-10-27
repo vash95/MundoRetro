@@ -3,7 +3,7 @@ import {useState} from 'react';
 type Check={ok?:boolean;folder?:string;canAddChildren?:boolean;error?:string;missing?:string[];status?:number};
 export default function GoogleDriveSetup(){
  const [token,setToken]=useState('');const [error,setError]=useState('');const [busy,setBusy]=useState(false);
- const [check,setCheck]=useState<Check|null>(null);const [results,setResults]=useState<Array<{url:string;type:string;side:string}>>([]);const [kind,setKind]=useState('game');const [url,setUrl]=useState('');const [name,setName]=useState('');const [saved,setSaved]=useState('');
+ const [check,setCheck]=useState<Check|null>(null);const [results,setResults]=useState<Array<{url:string;type:string;side:string}>>([]);const [kind,setKind]=useState('game');const [url,setUrl]=useState('');const [name,setName]=useState('');const [saved,setSaved]=useState('');const [replaceFileId,setReplaceFileId]=useState('');
  async function connect(){
   setError('');setBusy(true);
   try{
@@ -26,9 +26,9 @@ export default function GoogleDriveSetup(){
  async function save(){
   setError('');setSaved('');setBusy(true);
   try{
-   const r=await fetch('/api/admin/save-cover',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({url,name})});
+   const r=await fetch('/api/admin/save-cover',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({url,name,replaceFileId:replaceFileId.trim()||undefined})});
    const d=await r.json();if(!r.ok){setError(d.error||'No se pudo guardar la portada');return}
-   setSaved(d.name+' (ID: '+d.id+')');
+   setSaved((d.replaced?'Sustituida: ':'Guardada: ')+d.name+' (ID: '+d.id+')');if(d.id)setReplaceFileId(d.id);
   }catch{setError('Error al descargar o guardar la imagen.')}finally{setBusy(false)}
  }
  const input={display:'block',width:'100%',padding:12,margin:'10px 0 18px',border:'1px solid #888',borderRadius:8,boxSizing:'border-box' as const};
@@ -54,7 +54,10 @@ export default function GoogleDriveSetup(){
   <label htmlFor="url">URL HTTPS de la imagen seleccionada</label>
   <input id="url" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://cdn.thegamesdb.net/..." style={input}/>
   {url.startsWith('https://')&&<img src={url} alt="Vista previa de la portada elegida" style={{maxWidth:180,maxHeight:240,objectFit:'contain',display:'block',marginBottom:16}}/>}
-  <button disabled={!token||!url||busy} onClick={save} style={{padding:12}}>Guardar esta imagen en Drive</button>
+  <label htmlFor="replace">ID del archivo de Drive que quieres sustituir (opcional)</label>
+  <input id="replace" value={replaceFileId} onChange={e=>setReplaceFileId(e.target.value)} placeholder="Déjalo vacío para guardar una imagen nueva" style={input}/>
+  <p style={{fontSize:13}}>Si indicas un ID existente dentro de la carpeta de portadas, la imagen seleccionada sustituirá su contenido. Si lo dejas vacío, se creará un archivo nuevo.</p>
+  <button disabled={!token||!url||busy} onClick={save} style={{padding:12}}>{replaceFileId.trim()?'Sustituir portada en Drive':'Guardar nueva portada en Drive'}</button>
   {saved&&<p role="status">✅ Guardada: {saved}</p>}
   {error&&<p role="alert" style={{color:'#b91c1c'}}>{error}</p>}
   <p style={{marginTop:30,fontSize:13}}>Las imágenes guardadas no se publican automáticamente. Para verlas en el catálogo falta enlazarlas a la fila de Google Sheets y servirlas mediante una ruta controlada.</p>
