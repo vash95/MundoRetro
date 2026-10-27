@@ -1,8 +1,8 @@
 import { google } from 'googleapis';
 export type RecordRow = Record<string,string>;
 const ALLOWED: Record<string,string[]> = {
- Videojuegos:['ID','Juego','Plataforma','Estado','Formato','Género','Lanzamiento (origen)','Imagen URL','Tengo','Año completado','Fecha completado'],
- Consolas:['ID','Nombre','Tengo','Fabricante','Año lanzamiento (origen)','Cantidad','Con caja','Tipo','Imagen URL','Imágenes URL','Variantes'],
+ Videojuegos:['ID','Juego','Plataforma','Estado','Formato','Género','Lanzamiento (origen)','Imagen URL','Tengo','Año completado','Fecha completado','Fecha compra'],
+ Consolas:['ID','Nombre','Tengo','Fabricante','Año lanzamiento (origen)','Cantidad','Con caja','Tipo','Imagen URL','Imágenes URL','Variantes','Fecha compra'],
  Wishlist:['ID origen','Categoría','Elemento'],
  Progreso:['ID juego','Estado (vinculado)','Fecha actualización (manual)','Fecha completado','Año completado'],
  Accesorios:['ID','Nombre','Tengo','Fabricante','Cantidad','Con caja','Tipo','Imagen URL','Imágenes URL','Variantes']
