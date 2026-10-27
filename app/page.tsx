@@ -3,6 +3,6 @@ import Catalog from './ui';
 export const revalidate=300;
 export default async function Page(){
  let data;
- try { data=await getPublicCollection(); } catch { data={configured:false,games:[],consoles:[],accessories:[]}; }
+ try { data=await getPublicCollection(); } catch { data={configured:false,games:[],consoles:[],accessories:[],wishlist:[]}; }
  return <Catalog data={data}/>;
 }
