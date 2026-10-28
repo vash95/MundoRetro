@@ -1,5 +1,6 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useState,useRef} from 'react';
+import {coverLoader} from '../lib/cover-client';
 import CollectionEditor from './collection-editor';
 import {imageUrls,type Kind} from '../lib/collection-schema';
 type Item=Record<string,string>;
@@ -61,9 +62,11 @@ function Gallery({item,kind}:{item:Item;kind:string}){
  const urls=imageUrls(item);
  const [idx,setIdx]=useState(0),[broken,setBroken]=useState<string[]>([]),[online,setOnline]=useState(''),[error,setError]=useState('');
  const name=item.Juego||item.Nombre||'';
- useEffect(()=>{setIdx(0);setBroken([]);setOnline('');setError('');if(!name||urls.length||kind==='wishlist'||kind==='accessories')return;const controller=new AbortController();fetch('/api/cover?title='+encodeURIComponent(name)+'&kind='+(kind==='consoles'?'console':'game'),{signal:controller.signal}).then(r=>r.json()).then(r=>{setOnline(r.url||'');setError(r.error||'')}).catch(()=>setError('NETWORK_ERROR'));return ()=>controller.abort()},[name,kind,item['Imagen URL'],item['Imágenes URL']]);
+ const element=useRef<HTMLDivElement>(null),[visible,setVisible]=useState(false);
+ useEffect(()=>{setVisible(false);if(!element.current)return;if(typeof IntersectionObserver==='undefined'){setVisible(true);return}const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect()}},{rootMargin:'120px'});observer.observe(element.current);return ()=>observer.disconnect()},[name,kind]);
+ useEffect(()=>{setIdx(0);setBroken([]);setOnline('');setError('');if(!visible||!name||urls.length||kind==='wishlist'||kind==='accessories')return;let active=true;coverLoader.load(name,kind==='consoles'?'console':'game').then(result=>{if(active){setOnline(result.url||'');setError(result.error||'')}});return ()=>{active=false}},[visible,name,kind,item['Imagen URL'],item['Imágenes URL']]);
  const pictures=[...new Set([...urls,...(online?[online]:[])])].filter(u=>!broken.includes(u));const picture=pictures[idx%Math.max(1,pictures.length)];
- return <div className="art">{picture?<img loading="lazy" src={picture} alt={name||item.Elemento||'Artículo'} onError={()=>{setBroken(b=>[...b,picture]);setIdx(0)}}/>:<span title={error||'Sin imagen disponible'}>{kind==='consoles'?'🕹️':kind==='accessories'?'🎧':'🎮'}</span>}{pictures.length>1&&<div className="gallery-controls"><button aria-label="Anterior imagen" onClick={e=>{e.stopPropagation();setIdx(i=>(i+pictures.length-1)%pictures.length)}}>‹</button><span>{idx%pictures.length+1}/{pictures.length}</span><button aria-label="Siguiente imagen" onClick={e=>{e.stopPropagation();setIdx(i=>(i+1)%pictures.length)}}>›</button></div>}<small>{item.ID||item['ID origen']}</small></div>
+ return <div ref={element} className="art">{picture?<img loading="lazy" src={picture} alt={name||item.Elemento||'Artículo'} onError={()=>{setBroken(b=>[...b,picture]);setIdx(0)}}/>:<div className="cover-empty"><span aria-hidden="true">{kind==='consoles'?'🕹️':kind==='accessories'?'🎧':'🎮'}</span>{error==='RATE_LIMITED'&&<p>Portadas en pausa<br/><small>Límite temporal de TheGamesDB</small></p>}</div>}{pictures.length>1&&<div className="gallery-controls"><button aria-label="Anterior imagen" onClick={e=>{e.stopPropagation();setIdx(i=>(i+pictures.length-1)%pictures.length)}}>‹</button><span>{idx%pictures.length+1}/{pictures.length}</span><button aria-label="Siguiente imagen" onClick={e=>{e.stopPropagation();setIdx(i=>(i+1)%pictures.length)}}>›</button></div>}<small>{item.ID||item['ID origen']}</small></div>
 }
 
 function dateValue(raw:string){const s=raw.trim();const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1])).getTime();const n=Date.parse(s);return Number.isNaN(n)?0:n}
