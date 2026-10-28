@@ -74,3 +74,11 @@ Si falta la clave, se rechaza cualquier escritura. Si la cuenta solo es lectora,
 
 Con Node.js 22.18+ o 24: `node --experimental-strip-types --test tests/collection.test.mjs`.
 Las pruebas cubren autorización, validación, galerías, altas, edición, preservación de columnas privadas y errores de permisos. Para comprobar tipos y la aplicación completa: `npm run build`.
+
+## Portadas y límites de TheGamesDB
+
+Las consultas se activan cuando una tarjeta sin imágenes propias entra en pantalla. El navegador deduplica solicitudes, usa una cola de una consulta a la vez y conserva portadas resueltas durante siete días. Al recibir HTTP 429 o un error heredado SEARCH_HTTP_429, detiene las solicitudes pendientes y comparte la pausa entre pestañas mediante almacenamiento local. Respeta Retry-After; sin ese encabezado usa una pausa conservadora de 15 minutos. Los resultados en caché y las fotos propias siguen visibles.
+
+El servidor comparte la consulta entre catálogo y buscador de administración. Usa la Data Cache de Next para peticiones upstream durante siete días y guarda los resultados (incluidos fallos) durante 15 minutos. Una cola y un cortacircuitos reducen las ráfagas en cada instancia activa; no son un límite global distribuido. No se reintenta automáticamente un 429. Una cuota agotada no se restablece con un despliegue: debe recuperarla TheGamesDB.
+
+Pruebas: `node --experimental-strip-types --test tests/collection.test.mjs tests/covers.test.mjs`.

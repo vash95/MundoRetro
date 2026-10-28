@@ -27,3 +27,5 @@ html{color-scheme:dark}body{background:radial-gradient(ellipse at 12% 8%,#133249
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 .collection-editor fieldset{border:0;padding:0;margin:0;min-width:0}
+
+.cover-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:18px;text-align:center;color:#8998b6}.cover-empty p{margin:0;font-size:11px;line-height:1.5}.cover-empty p small{position:static;background:none;max-width:none;font-size:9px;white-space:normal}
