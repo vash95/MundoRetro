@@ -40,3 +40,10 @@ test('server deduplicates lookup and returns verified HTTPS cover images',async(
 test('Retry-After supports delta seconds, HTTP dates and invalid values',()=>{
  const now=Date.parse('2026-10-28T08:00:00Z');assert.equal(retrySeconds('120',now),120);assert.equal(retrySeconds('Wed, 28 Oct 2026 08:03:00 GMT',now),180);assert.equal(retrySeconds('invalid',now),900);
 });
+
+test('offscreen queued requests are cancelled before consuming quota',async()=>{
+ const c=clock();let calls=0;const loader=createCoverLoader({fetcher:async()=>{calls++;return json({url:null,error:'NOT_FOUND'})},...c});const controller=new AbortController();const promise=loader.load('Offscreen','game',controller.signal);controller.abort();assert.equal((await promise).error,'CANCELLED');assert.equal(calls,0);
+});
+test('cancelling one view keeps a shared request required by another view',async()=>{
+ const c=clock();let calls=0;const loader=createCoverLoader({fetcher:async()=>{calls++;return json({url:'https://cdn.thegamesdb.net/a.jpg'})},...c});const first=new AbortController(),second=new AbortController();const a=loader.load('Same','game',first.signal),b=loader.load('Same','game',second.signal);first.abort();await Promise.all([a,b]);assert.equal(calls,1);
+});

@@ -2,17 +2,19 @@ import type {CoverResult} from './thegamesdb';
 type StorageLike={getItem:(key:string)=>string|null;setItem:(key:string,value:string)=>void};
 type Options={fetcher:typeof fetch;storage?:()=>StorageLike|null;now?:()=>number;wait?:(ms:number)=>Promise<void>};
 export function createCoverLoader({fetcher,storage=()=>null,now=()=>Date.now(),wait=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms))}:Options){
- const memory=new Map<string,{until:number;result:CoverResult}>(),pending=new Map<string,Promise<CoverResult>>();
+ const memory=new Map<string,{until:number;result:CoverResult}>(),pending=new Map<string,{promise:Promise<CoverResult>;signals:Set<AbortSignal|undefined>}>();
  let queue:Promise<unknown>=Promise.resolve(),blockedUntil=0,nextRequest=0;
  const pauseKey='mr.cover.pause.v2';
  function read(key:string){try{return storage()?.getItem(key)||null}catch{return null}}
  function write(key:string,value:string){try{storage()?.setItem(key,value)}catch{/* Cache is optional when browser storage is unavailable. */}}
  function cached(key:string){let entry=memory.get(key);if(!entry){try{entry=JSON.parse(read(key)||'null')||undefined}catch{}}if(entry&&entry.until>now())return entry.result;return null}
- async function run(key:string,title:string,kind:string):Promise<CoverResult>{
+ async function run(key:string,title:string,kind:string,isNeeded:()=>boolean):Promise<CoverResult>{
+  if(!isNeeded())return {url:null,error:"CANCELLED"};
   const prior=cached(key);if(prior)return prior;
   blockedUntil=Math.max(blockedUntil,Number(read(pauseKey))||0);
   if(blockedUntil>now())return {url:null,error:'RATE_LIMITED',retryAfter:Math.ceil((blockedUntil-now())/1000)};
   if(nextRequest>now())await wait(nextRequest-now());
+  if(!isNeeded())return {url:null,error:"CANCELLED"};
   // A second tab may have paused the provider while this request was queued.
   blockedUntil=Math.max(blockedUntil,Number(read(pauseKey))||0);
   if(blockedUntil>now())return {url:null,error:'RATE_LIMITED',retryAfter:Math.ceil((blockedUntil-now())/1000)};
@@ -31,11 +33,11 @@ export function createCoverLoader({fetcher,storage=()=>null,now=()=>Date.now(),w
   const ttl=result.url?604800000:result.error==='NOT_FOUND'||result.error==='NO_IMAGE'?86400000:result.error==='RATE_LIMITED'?(result.retryAfter||900)*1000:60000;
   const entry={until:now()+ttl,result};memory.set(key,entry);write(key,JSON.stringify(entry));return result;
  }
- return {load(title:string,kind:'game'|'console'){
+ return {load(title:string,kind:'game'|'console',signal?:AbortSignal){
   const key='mr.cover.v2.'+encodeURIComponent(kind+':'+title.trim().toLowerCase());
   const prior=cached(key);if(prior)return Promise.resolve(prior);
-  const existing=pending.get(key);if(existing)return existing;
-  const promise=queue.then(()=>run(key,title,kind));queue=promise.catch(()=>{});pending.set(key,promise);void promise.finally(()=>pending.delete(key));return promise;
+  const existing=pending.get(key);if(existing){existing.signals.add(signal);return existing.promise}
+  const signals=new Set<AbortSignal|undefined>([signal]);const promise=queue.then(()=>run(key,title,kind,()=>[...signals].some(s=>!s||!s.aborted)));queue=promise.catch(()=>{});pending.set(key,{promise,signals});void promise.finally(()=>pending.delete(key));return promise;
  }};
 }
 export const coverLoader=createCoverLoader({fetcher:(...args)=>fetch(...args),storage:()=>typeof window!=='undefined'?window.localStorage:null});
