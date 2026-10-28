@@ -10,7 +10,7 @@ Catálogo público de colección gaming con Next.js + Vercel + Google Sheets pri
    - `GOOGLE_SERVICE_ACCOUNT_EMAIL`: email de la cuenta de servicio
    - `GOOGLE_PRIVATE_KEY`: clave privada de la cuenta de servicio, con los saltos de línea codificados como `\\n` o como clave multilínea.
 4. En Google Cloud Console habilita Google Sheets API, crea una cuenta de servicio y una clave JSON.
-5. Comparte el Google Sheets con el email de esa cuenta de servicio con rol **Lector**.
+5. Comparte el Google Sheets con el email de esa cuenta de servicio con rol **Lector** para consultar o **Editor** para guardar desde la web.
 6. Redeploy en Vercel. Los cambios en Sheets se reflejan tras aproximadamente 5 minutos.
 
 ## Seguridad
@@ -18,8 +18,9 @@ Catálogo público de colección gaming con Next.js + Vercel + Google Sheets pri
 - El repositorio puede ser público. La hoja debe seguir privada.
 - La lectura se ejecuta en el servidor de Next.js, no en el navegador.
 - Solo se exponen los campos explícitamente permitidos en `lib/sheets.ts`; se excluyen precios, notas y fuentes.
-- La edición se hace en Google Sheets, solo por las personas con permisos.
-- La página no implementa un panel de edición.
+- El catálogo público permite consultar las fichas. Las escrituras del editor requieren `MUNDO_RETRO_ADMIN_TOKEN`, validado solo en el servidor.
+- La clave no se incluye en el código público ni se persiste en el navegador. Solo vive en memoria mientras la página permanece abierta.
+- El editor escribe únicamente las columnas públicas permitidas y conserva las demás columnas (precios, notas y fuentes).
 
 ## Desarrollo local
 `npm install` y `npm run dev`.
@@ -52,3 +53,24 @@ Content-Type: application/json
 ```
 
 El endpoint devuelve el ID del archivo de Drive. **Pendiente**: completar la autorización OAuth, vincular los IDs a las filas de Google Sheets, servir imágenes mediante un proxy autenticado y construir la interfaz de importación. No hacer pública la carpeta por defecto. El fallo HTTP 403 de TheGamesDB impide obtener sus imágenes hasta resolver el acceso y comprobar los derechos de almacenamiento.
+
+## Editor web de la colección
+
+En la cabecera, **Añadir pieza** crea consolas, juegos o accesorios. **Editar ficha** aparece en cada tarjeta y en su detalle. Los formularios permiten cambiar nombre, plataforma/fabricante, año, cantidad, estado, descripción y curiosidades. Los textos de descripción y curiosidades son públicos: no introduzcas notas privadas.
+
+Las fotografías se configuran con enlaces HTTPS directos (hasta ocho por ficha). Puedes quitar o reordenar imágenes con las flechas; la primera es la portada. Desde dos imágenes aparece un carrusel con contador. Las fotos propias tienen prioridad sobre la búsqueda automática de portadas. No se suben archivos al servidor ni se necesita Google Drive para utilizar enlaces de imágenes.
+
+### Activar el guardado
+
+1. Configura una clave aleatoria larga en **Vercel → Settings → Environment Variables → MUNDO_RETRO_ADMIN_TOKEN**. Si ya existe para la administración de Drive, se reutiliza.
+2. Comparte el inventario con la cuenta indicada en **GOOGLE_SERVICE_ACCOUNT_EMAIL** con rol **Editor**.
+3. Vuelve a desplegar después de cambiar variables. Introduce la clave en el formulario de edición; nunca la añadas al repositorio ni uses un prefijo NEXT_PUBLIC_.
+4. Al guardar, las columnas públicas que falten se añaden al final de la pestaña. Las columnas privadas existentes no se modifican. Los elementos nuevos reciben un ID único.
+5. La ficha se actualiza inmediatamente en el navegador que guarda y se invalida la página pública para las siguientes visitas.
+
+Si falta la clave, se rechaza cualquier escritura. Si la cuenta solo es lectora, el formulario explica que debes darle permiso de Editor. La aplicación no genera una clave predeterminada ni convierte la hoja en pública.
+
+### Comprobación
+
+Con Node.js 22.18+ o 24: `node --experimental-strip-types --test tests/collection.test.mjs`.
+Las pruebas cubren autorización, validación, galerías, altas, edición, preservación de columnas privadas y errores de permisos. Para comprobar tipos y la aplicación completa: `npm run build`.
