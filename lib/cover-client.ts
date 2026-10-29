@@ -21,7 +21,7 @@ export function createCoverLoader({fetcher,storage=()=>null,now=()=>Date.now(),w
   nextRequest=now()+750;
   let result:CoverResult;
   try{
-   const response=await fetcher('/api/cover?title='+encodeURIComponent(title)+'&kind='+kind,{signal:AbortSignal.timeout(15000)});
+   const response=await fetcher('/api/cover?title='+encodeURIComponent(title)+'&kind='+kind,{signal:AbortSignal.timeout(60000)});
    let body:CoverResult;try{body=await response.json()}catch{body={url:null,error:'NETWORK_ERROR'}}
    if(response.status===429||body.error==='RATE_LIMITED'||body.error?.includes('429')){
     const raw=response.headers.get('Retry-After');const header=raw?(/^\d+$/.test(raw)?Number(raw):(Date.parse(raw)-now())/1000):0;
@@ -34,7 +34,7 @@ export function createCoverLoader({fetcher,storage=()=>null,now=()=>Date.now(),w
   const entry={until:now()+ttl,result};memory.set(key,entry);write(key,JSON.stringify(entry));return result;
  }
  return {load(title:string,kind:'game'|'console',signal?:AbortSignal){
-  const key='mr.cover.v2.'+encodeURIComponent(kind+':'+title.trim().toLowerCase());
+  const key='mr.cover.v3.'+encodeURIComponent(kind+':'+title.trim().toLowerCase());
   const prior=cached(key);if(prior)return Promise.resolve(prior);
   const existing=pending.get(key);if(existing){existing.signals.add(signal);return existing.promise}
   const signals=new Set<AbortSignal|undefined>([signal]);const promise=queue.then(()=>run(key,title,kind,()=>[...signals].some(s=>!s||!s.aborted)));queue=promise.catch(()=>{});pending.set(key,{promise,signals});void promise.finally(()=>pending.delete(key));return promise;
