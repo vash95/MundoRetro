@@ -45,3 +45,16 @@ html{color-scheme:dark}body{background:radial-gradient(ellipse at 12% 8%,#133249
 .play-tick:hover{border-color:var(--tick-color)}
 .play-tick:focus-within{outline:2px solid var(--tick-color);outline-offset:3px}
 .play-tick:has(input:disabled){opacity:.6;cursor:wait}
+
+/* Dashboard icons: GameCube, pixel gamer GIF (Tenor), Pikachu sprite (PokeAPI). */
+.metric:has(.metric-icon){grid-template-columns:64px 1fr;column-gap:12px}
+.metric>.metric-icon{display:flex;align-items:center;justify-content:center;width:64px;height:64px;min-width:0}
+.metric-icon img{display:block;width:64px;height:64px;object-fit:contain}
+.metric-icon--gamecube img{width:52px;height:52px;filter:invert(76%) sepia(35%) saturate(1200%) hue-rotate(200deg)}
+.metric-icon--playing{overflow:hidden;border-radius:10px;background:#0a1020}
+.metric-icon--playing img{object-fit:cover}
+.metric-icon--pikachu img{width:76px;height:76px;max-width:none;image-rendering:pixelated}
+.metric-icon .metric-icon-fallback{display:none;font-size:30px}
+.metric-icon .metric-icon-fallback.is-visible{display:block}
+@media(max-width:650px){.metric:has(.metric-icon){grid-template-columns:48px 1fr;column-gap:8px}.metric>.metric-icon{width:48px;height:48px}.metric-icon img{width:48px;height:48px}.metric-icon--gamecube img{width:42px;height:42px}.metric-icon--pikachu img{width:64px;height:64px}}
+@media(prefers-reduced-motion:reduce){.metric-icon--playing img{display:none}.metric-icon--playing .metric-icon-fallback{display:block}}
