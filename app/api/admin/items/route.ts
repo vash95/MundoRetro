@@ -36,3 +36,31 @@ export async function POST(request:NextRequest){
  revalidatePath('/');return NextResponse.json({item},{headers});
  }catch{return NextResponse.json({error:'No se pudo guardar en Google Sheets. Comprueba que la cuenta de servicio tenga permiso de Editor y vuelve a intentarlo.'},{status:502,headers})}
 }
+
+export async function DELETE(request:NextRequest){
+ const headers={'Cache-Control':'no-store'};
+ const secret=process.env.MUNDO_RETRO_ADMIN_TOKEN,supplied=request.headers.get('authorization')?.replace(/^Bearer /,'')||'';
+ if(!secret)return NextResponse.json({error:'Administración no configurada.'},{status:503,headers});
+ const a=Buffer.from(secret),b=Buffer.from(supplied);
+ if(a.length!==b.length||!timingSafeEqual(a,b))return NextResponse.json({error:'Clave de administración incorrecta.'},{status:401,headers});
+ if(request.headers.get('origin')&&request.headers.get('origin')!==request.nextUrl.origin)return NextResponse.json({error:'Origen no permitido.'},{status:403,headers});
+ let body;try{const raw=await request.text();if(raw.length>1000)throw Error();body=JSON.parse(raw)}catch{return NextResponse.json({error:'Petición no válida.'},{status:400,headers})}
+ if(!['games','consoles','accessories'].includes(body?.kind)||typeof body.id!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(body.id))return NextResponse.json({error:'Ficha no válida.'},{status:400,headers});
+ const kind=body.kind as Kind,email=process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key=process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g,'\n'),spreadsheetId=process.env.GOOGLE_SHEET_ID;
+ if(!email||!key||!spreadsheetId)return NextResponse.json({error:'Google Sheets no configurado.'},{status:503,headers});
+ try{
+ const auth=new google.auth.JWT({email,key,scopes:['https://www.googleapis.com/auth/spreadsheets']});
+ const api=google.sheets({version:'v4',auth}),tab=sheetTabs[kind];
+ const response=await api.spreadsheets.values.get({spreadsheetId,range:"'"+tab+"'"});
+ const rows=(response.data.values||[]) as string[][],idIndex=(rows[0]||[]).indexOf('ID');
+ if(idIndex<0)throw Error('Missing ID');
+ const matches=rows.map((r,i)=>i>0&&String(r[idIndex])===body.id?i:-1).filter(i=>i>0);
+ if(matches.length!==1)return NextResponse.json({error:matches.length?'Hay IDs duplicados. Revisa la hoja antes de eliminar.':'La ficha ya no existe. Recarga la página.'},{status:409,headers});
+ const metadata=await api.spreadsheets.get({spreadsheetId,fields:'sheets(properties(sheetId,title))'});
+ const sheetId=metadata.data.sheets?.find(s=>s.properties?.title===tab)?.properties?.sheetId;
+ if(sheetId==null)throw Error('Missing sheet');
+ await api.spreadsheets.batchUpdate({spreadsheetId,requestBody:{requests:[{deleteDimension:{range:{sheetId,dimension:'ROWS',startIndex:matches[0],endIndex:matches[0]+1}}}]}});
+ revalidatePath('/');
+ return NextResponse.json({deleted:body.id,kind},{headers});
+ }catch{return NextResponse.json({error:'No se pudo eliminar en Google Sheets. Comprueba los permisos de Editor.'},{status:502,headers})}
+}
