@@ -52,7 +52,7 @@ export default function Catalog({data:initialData}:{data:Data}){
  return <main className="wrap redesign">
   <header className="topbar"><div className="brand"><span className="brand-icon">👾</span><div><strong>MUNDO RETRO</strong><small>MI COLECCIÓN DE VIDEOJUEGOS</small></div></div><div className="top-actions"><span className="live">● CATÁLOGO PÚBLICO</span>{isAdmin&&<button className="edit-link" onClick={()=>openEditor(null)}>＋ Añadir pieza</button>}<button className="edit-link" onClick={()=>{if(isAdmin){setIsAdmin(false);setAdminToken('');setEditor(null)}else setShowLogin(v=>!v)}}>{isAdmin?'Salir de administración':'Administrar'}</button></div></header>
   {showLogin&&!isAdmin&&<form className="dashboard-panel" onSubmit={login}><label>Clave de administración <input type="password" autoComplete="off" required value={adminToken} onChange={e=>setAdminToken(e.target.value)}/></label><button className="edit-link" disabled={adminBusy} type="submit">{adminBusy?'Comprobando…':'Entrar como administrador'}</button></form>}
-  <section className="hero new-hero"><span className="eyebrow">✦ EL ARCHIVO DEFINITIVO</span><h1>Mi universo <em>gaming.</em></h1><p>Un viaje por los videojuegos, consolas y recuerdos de toda una vida.</p><div className="metric-grid"><div className="metric blue"><span>🎮</span><strong>{data.games.length}</strong><small>Videojuegos</small></div><div className="metric green"><span>✓</span><strong>{data.consoles.filter(x=>x.Tengo==='Sí').length}</strong><small>Consolas en colección</small></div><div className="metric amber"><span>◉</span><strong>{playingCount}</strong><small>Jugando ahora</small></div><div className="metric pink"><span>♥</span><strong>{pokemonCount}</strong><small>Juegos Pokémon</small></div><div className="metric purple"><span>🛒</span><strong>{data.wishlist.length}</strong><small>Wishlist</small></div></div></section>
+  <section className="hero new-hero"><span className="eyebrow">✦ EL ARCHIVO DEFINITIVO</span><h1>Mi universo <em>gaming.</em></h1><p>Un viaje por los videojuegos, consolas y recuerdos de toda una vida.</p><div className="metric-grid"><div className="metric blue"><span>🎮</span><strong>{data.games.length}</strong><small>Videojuegos</small></div><div className="metric green"><DashboardIcon kind="gamecube"/><strong>{data.consoles.filter(x=>x.Tengo==='Sí').length}</strong><small>Consolas en colección</small></div><div className="metric amber"><DashboardIcon kind="playing"/><strong>{playingCount}</strong><small>Jugando ahora</small></div><div className="metric pink"><DashboardIcon kind="pikachu"/><strong>{pokemonCount}</strong><small>Juegos Pokémon</small></div><div className="metric purple"><span>🛒</span><strong>{data.wishlist.length}</strong><small>Wishlist</small></div></div></section>
   {!data.configured&&<div className="notice">Vista preparada. Para mostrar el inventario, configura las variables de Google Sheets en Vercel.</div>}
   <nav className="tabs retro-tabs">{tabs.map(([id,label])=><button key={id} className={tab===id?'active':''} onClick={()=>{setTab(id);setPlatform('Todas');setStatus('Todos');setOwnership('Todos');setEra('Todas')}}>{label}</button>)}</nav>
   {tab==='dashboard'&&<section className="analytics"><h2>Mi progreso gaming</h2><div className="stats"><div><strong>{completed.length}</strong><span>Completados</span></div><div><strong>{pending.length}</strong><span>Pendientes</span></div><div><strong>{data.wishlist.length}</strong><span>Futuras compras</span></div></div>
@@ -101,3 +101,14 @@ function PlayTicks({state,disabled,onChange}:{state:string;disabled:boolean;onCh
 }
 
 function playBadgeClass(state:string){return /completado|terminado|finalizado|pasado/i.test(state)?'play-badge play-badge--completed':/^jugado$/i.test(state)?'play-badge play-badge--played':undefined}
+
+function DashboardIcon({kind}:{kind:'gamecube'|'playing'|'pikachu'}){
+ const [failed,setFailed]=useState(false);
+ const icons={
+  gamecube:{url:'https://www.svgrepo.com/download/87051/gamecube-console-box.svg',fallback:'🕹️'},
+  playing:{url:'https://media.tenor.com/5dXEI5XOrtAAAAAM/playing-video-games.gif',fallback:'🎮'},
+  pikachu:{url:'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png',fallback:'⚡'}
+ };
+ const icon=icons[kind];
+ return <span className={'metric-icon metric-icon--'+kind} aria-hidden="true">{!failed&&<img src={icon.url} alt="" width={64} height={64} decoding="async" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>}<span className={'metric-icon-fallback'+(failed?' is-visible':'')}>{icon.fallback}</span></span>;
+}
