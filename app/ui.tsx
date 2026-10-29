@@ -5,7 +5,7 @@ import CollectionEditor from './collection-editor';
 import {imageUrls,type Kind} from '../lib/collection-schema';
 type Item=Record<string,string>;
 type Data={configured:boolean;games:Item[];consoles:Item[];accessories:Item[];wishlist:Item[];progress:Item[]};
-const tabs=[['games','Juegos'],['pokemon','Pokémon'],['playing','Jugando ahora'],['consoles','Consolas'],['arcade','Mi zona arcade'],['accessories','Accesorios'],['wishlist','Wishlist'],['dashboard','Estadísticas']] as const;
+const tabs=[['dashboard','Estadísticas'],['games','Juegos'],['pokemon','Pokémon'],['playing','Jugando ahora'],['consoles','Consolas'],['arcade','Mi zona arcade'],['accessories','Accesorios'],['wishlist','Wishlist']] as const;
 export default function Catalog({data:initialData}:{data:Data}){
  const [data,setData]=useState(initialData);
  const [editor,setEditor]=useState<{item:Item|null;kind:Kind}|null>(null),[adminToken,setAdminToken]=useState(''),[notice,setNotice]=useState('');
@@ -17,7 +17,7 @@ export default function Catalog({data:initialData}:{data:Data}){
  const openEditor=(x:Item|null)=>{if(!isAdmin)return;setEditor({item:x,kind:x?kindOf(x):(tab==='consoles'||tab==='arcade')?'consoles':tab==='accessories'?'accessories':'games'});setSelected(null)};
  useEffect(()=>{function onKey(e:KeyboardEvent){if(e.key==='Escape'&&!document.querySelector('dialog[open]'))setSelected(null)}window.addEventListener('keydown',onKey);return ()=>window.removeEventListener('keydown',onKey)},[]);
 
- const [tab,setTab]=useState<'games'|'pokemon'|'playing'|'consoles'|'arcade'|'accessories'|'wishlist'|'dashboard'>('games');
+ const [tab,setTab]=useState<'games'|'pokemon'|'playing'|'consoles'|'arcade'|'accessories'|'wishlist'|'dashboard'>('dashboard');
  const [query,setQuery]=useState('');
  const [platform,setPlatform]=useState('Todas');
  const [status,setStatus]=useState('Todos');
@@ -44,7 +44,6 @@ export default function Catalog({data:initialData}:{data:Data}){
   if(/en curso|jugando/i.test(game.Estado||''))addPlayed(String(currentYear),game);
  });
  const playedThisYear=playedByYear.get(String(currentYear))||[];
- const history=[...playedByYear.entries()].filter(([period])=>period!==String(currentYear)).sort(([a],[b])=>parseInt(b)-parseInt(a));
  const years=[...playedByYear.entries()].sort(([a],[b])=>parseInt(a)-parseInt(b)).map(([year,list])=>[year,list.length] as const);
  const acquired=(list:Item[])=>list.filter(x=>x.Tengo!=='No').slice().reverse().slice(0,12);
  const recentGames=acquired(data.games),recentConsoles=acquired(data.consoles.filter(x=>!isArcade(x)));
@@ -60,9 +59,7 @@ export default function Catalog({data:initialData}:{data:Data}){
    <div className="dashboard-columns"><AcquisitionCarousel title="🎮 Últimos juegos adquiridos" items={recentGames} kind="games" onSelect={setSelected}/><AcquisitionCarousel title="🕹️ Últimas consolas adquiridas" items={recentConsoles} kind="consoles" onSelect={setSelected}/></div>
    <div className="dashboard-columns"><section className="dashboard-panel"><h3>📚 Pendientes de jugar <small>({pending.length})</small></h3><div className="dashboard-list">{pending.length?pending.map((x,i)=><button key={(x.ID||x.Juego)+i} className="dashboard-entry" onClick={()=>setSelected(x)}><span>{x.Juego}</span><small>{x.Plataforma}</small></button>):<p className="muted">No hay juegos pendientes registrados.</p>}</div></section>
    <section className="dashboard-panel"><h3>🎮 Títulos jugados en {currentYear} <small>({playedThisYear.length})</small></h3><div className="dashboard-list">{playedThisYear.length?playedThisYear.map((x,i)=><button key={(x.ID||x.Juego)+i} className="dashboard-entry" onClick={()=>setSelected(x)}><span>{x.Juego}</span><small>{x.Plataforma}</small></button>):<p className="muted">No hay títulos con actividad registrada en {currentYear}.</p>}</div></section></div>
-   <section className="dashboard-panel"><h3>Historial de títulos jugados</h3>{history.length?history.map(([period,games])=><details key={period}><summary>{period} · {games.length} títulos</summary><div className="dashboard-list">{games.map(x=><button key={x.ID} className="dashboard-entry" onClick={()=>setSelected(x)}><span>{x.Juego}</span><small>{x.Plataforma}</small></button>)}</div></details>):<p className="muted">Registra el año o una década aproximada en la ficha de cada juego.</p>}</section>
-   <section className="dashboard-panel"><h3>🕹️ Mi zona arcade</h3><p>{arcade.filter(x=>x.Tengo!=='No').length} recreativas y pinballs en colección</p><button className="edit-link" onClick={()=>{setTab('arcade');setQuery('');setPlatform('Todas');setStatus('Todos');setOwnership('Todos');setEra('Todas')}}>Ver mi zona arcade</button></section>
-   <h3>Títulos jugados por periodo</h3>{years.length?years.map(([year,count])=><div className="chartline" key={year}><span>{year}</span><div><i style={{width:Math.max(4,100*count/Math.max(...years.map(([,n])=>n)))+'%'}}/></div><b>{count}</b></div>):<p className="muted">Para ver la evolución anual, registra el año de finalización en la hoja Progreso.</p>}<p className="muted">Las últimas incorporaciones siguen el orden inverso de la lista. El historial agrupa 2000–2009 y 2010–2019; desde 2020 muestra cada año. Puedes elegir un periodo aproximado al editar un juego.</p></section>}
+   <h3>Títulos jugados por periodo</h3>{years.length?years.map(([year,count])=><div className="chartline" key={year}><span>{year}</span><div><i style={{width:Math.max(4,100*count/Math.max(...years.map(([,n])=>n)))+'%'}}/></div><b>{count}</b></div>):<p className="muted">Para ver la evolución anual, registra el año de finalización en la hoja Progreso.</p>}<p className="muted">Las últimas incorporaciones siguen el orden inverso de la lista. La gráfica agrupa 2000–2009 y 2010–2019; desde 2020 muestra cada año. Puedes elegir un periodo aproximado al editar un juego.</p></section>}
  {tab!=='dashboard'&&<section className="toolbar"><input aria-label="Buscar en colección" value={query} onChange={e=>setQuery(e.target.value)} placeholder="⌕  Buscar en la colección..."/><select aria-label="Plataforma o fabricante" value={platform} onChange={e=>setPlatform(e.target.value)}>{platforms.map(p=><option key={p}>{p}</option>)}</select><select aria-label="Estado de juego" value={status} onChange={e=>setStatus(e.target.value)}>{['Todos',...new Set(items.map(x=>x.Estado).filter(Boolean))].map(p=><option key={p}>{p}</option>)}</select><select aria-label="Posesión" value={ownership} onChange={e=>setOwnership(e.target.value)}>{['Todos','Tengo','No tengo'].map(p=><option key={p}>{p}</option>)}</select><select aria-label="Época" value={era} onChange={e=>setEra(e.target.value)}>{['Todas','Retro','Moderno'].map(p=><option key={p}>{p}</option>)}</select></section>}
   {tab==='arcade'&&<section className="dashboard-panel"><h2>Mi zona arcade</h2><p>Mis recreativas y mi pinball: fotografías, modelos, años y recuerdos.</p>{isAdmin&&<button className="edit-link" onClick={()=>openEditor(null)}>＋ Añadir recreativa o pinball</button>}<p className="muted">En Tipo selecciona Recreativa o Pinball. También puedes editar una pieza existente para incluirla aquí.</p></section>}
   {tab!=='dashboard'&&<><div className="result">{filtered.length} elementos encontrados</div>
