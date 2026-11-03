@@ -84,7 +84,7 @@ function Gallery({item,kind}:{item:Item;kind:string}){
  useEffect(()=>{setIdx(0);setBroken([]);setOnline('');setError('')},[name,kind,item['Imagen URL'],item['Imágenes URL']]);
  useEffect(()=>{if(!visible||!name||urls.length||kind==='wishlist'||kind==='accessories'||(kind==='consoles'&&/arcade|recreativa|pinball|petaco/i.test([item.Tipo,item.Nombre].join(' '))))return;let active=true;const controller=new AbortController();coverLoader.load(name,kind==='consoles'?'console':'game',controller.signal).then(result=>{if(active){setOnline(result.url||'');setError(result.error||'')}});return ()=>{active=false;controller.abort()}},[visible,name,kind,item['Imagen URL'],item['Imágenes URL']]);
  const pictures=[...new Set([...urls,...(online?[online]:[])])].filter(u=>!broken.includes(u));const picture=pictures[idx%Math.max(1,pictures.length)];
- return <div ref={element} className="art">{picture?<img loading="lazy" src={picture} alt={name||item.Elemento||'Artículo'} onError={()=>{setBroken(b=>[...b,picture]);setIdx(0)}}/>:<div className="cover-empty"><span aria-hidden="true">{kind==='consoles'?'🕹️':kind==='accessories'?'🎧':'🎮'}</span>{error?.startsWith('ARCHIVE_')&&<p>No se pudo guardar en Drive<br/><small>Revisa la conexión de Drive y los permisos de Sheets</small></p>}{error==='RATE_LIMITED'&&<p>Portadas en pausa<br/><small>Límite temporal de TheGamesDB</small></p>}</div>}{pictures.length>1&&<div className="gallery-controls"><button aria-label="Anterior imagen" onClick={e=>{e.stopPropagation();setIdx(i=>(i+pictures.length-1)%pictures.length)}}>‹</button><span>{idx%pictures.length+1}/{pictures.length}</span><button aria-label="Siguiente imagen" onClick={e=>{e.stopPropagation();setIdx(i=>(i+1)%pictures.length)}}>›</button></div>}<small>{item.ID||item['ID origen']}</small></div>
+ return <div ref={element} className="art">{picture?<img loading="lazy" src={picture} alt={name||item.Elemento||'Artículo'} onError={()=>{setBroken(b=>[...b,picture]);setIdx(0)}}/>:<div className="cover-empty"><span aria-hidden="true">{kind==='consoles'?'🕹️':kind==='accessories'?'🎧':'🎮'}</span>{(error||broken.length>0)&&<p role="status">{coverMessage(error||'IMAGE_UNAVAILABLE')}<br/><small>{error||'IMAGE_UNAVAILABLE'}</small></p>}</div>}{pictures.length>1&&<div className="gallery-controls"><button aria-label="Anterior imagen" onClick={e=>{e.stopPropagation();setIdx(i=>(i+pictures.length-1)%pictures.length)}}>‹</button><span>{idx%pictures.length+1}/{pictures.length}</span><button aria-label="Siguiente imagen" onClick={e=>{e.stopPropagation();setIdx(i=>(i+1)%pictures.length)}}>›</button></div>}<small>{item.ID||item['ID origen']}</small></div>
 }
 
 function dateValue(raw:string){const s=raw.trim();const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1])).getTime();const n=Date.parse(s);return Number.isNaN(n)?0:n}
@@ -112,4 +112,29 @@ function DashboardIcon({kind}:{kind:'gamecube'|'playing'|'pikachu'}){
  };
  const icon=icons[kind];
  return <span className={'metric-icon metric-icon--'+kind} aria-hidden="true">{!failed&&<img src={icon.url} alt="" width={64} height={64} decoding="async" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>}<span className={'metric-icon-fallback'+(failed?' is-visible':'')}>{icon.fallback}</span></span>;
+}
+
+function coverMessage(error:string){
+ const messages:Record<string,string>={
+  ARCHIVE_SHEETS_NOT_CONFIGURED:'Falta configurar la conexión con Sheets',
+  ARCHIVE_FOLDER_NOT_CONFIGURED:'Falta configurar la carpeta de portadas en Vercel',
+  ARCHIVE_OAUTH_NOT_CONFIGURED:'Falta configurar la conexión con Drive en Vercel',
+  ARCHIVE_OAUTH_EXPIRED:'La autorización de Drive ha caducado: vuelve a conectar la cuenta',
+  ARCHIVE_FOLDER_NOT_FOUND:'La cuenta de Drive no encuentra la carpeta de portadas',
+  ARCHIVE_FOLDER_INVALID:'El destino configurado no es una carpeta de Drive disponible',
+  ARCHIVE_DRIVE_FORBIDDEN:'La cuenta de Drive no tiene permiso para guardar portadas',
+  ARCHIVE_SHEETS_FORBIDDEN:'La cuenta de servicio necesita permiso de Editor en Sheets',
+  ARCHIVE_COLUMNS_MISSING:'Faltan las columnas ID o nombre en el inventario',
+  ARCHIVE_SHARING_FAILED:'Drive no permite compartir la portada para mostrarla',
+  ARCHIVE_DOWNLOAD_FAILED:'No se pudo descargar la portada desde TheGamesDB',
+  RATE_LIMITED:'Portadas en pausa: límite temporal de TheGamesDB',
+  API_KEY_MISSING:'Falta configurar la clave de TheGamesDB en Vercel',
+  UPSTREAM_HTTP_403:'TheGamesDB ha rechazado el acceso',
+  NOT_FOUND:'No se encontró este título en TheGamesDB',
+  NO_IMAGE:'TheGamesDB no tiene imágenes para este título',
+  NOT_IN_COLLECTION:'No se encontró esta ficha en el inventario',
+  IMAGE_UNAVAILABLE:'El enlace de la imagen no está disponible',
+  NETWORK_ERROR:'No se pudo conectar con el servicio de portadas'
+ };
+ return messages[error]||'No se pudo cargar la portada';
 }
